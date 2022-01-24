@@ -1,4 +1,5 @@
 pub mod cmdline;
+pub mod remote;
 
 pub fn hello_world(name: String) {
     println!("Hello World {}", name);    
