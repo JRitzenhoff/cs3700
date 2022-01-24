@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Create a path to the new file
+pyFile="launch.py"
+scriptPath="$(dirname "$(realpath $0)")"
+fullPath="$scriptPath/src/$pyFile"
+
+# Port all of the command line arguments from this shell script
+#   into the Python program
+python3 "$fullPath" $@
