@@ -1,33 +1,20 @@
+use std::io::Error;
 
 use clap::Parser; // apparently required for using CLI::parse
 
-use wordle_guesser::cmdline::CLI;
-use wordle_guesser::remote::launch_wordle_client;
+use wordle_guesser::{self, remote, cmdline::CLI, player::Player};
 
-#[allow(dead_code)]
-const DEFAULT_WORD_LIST_PATH: &str = "word_list.txt";
-
-fn main() {
-    // get the cli input
-    let _cli_input = CLI::parse_from(std::env::args_os());
+fn main() -> Result<(), Error> {
     
-    // TODO: remove this print statement
-    println!("{:?}", _cli_input);
+    // get the cli input
+    let cli_input = CLI::parse_from(std::env::args_os());
 
-    let address = format!("{}:{}", _cli_input.hostname, _cli_input.port);
+    let word_options: Vec<String> = wordle_guesser::read_word_contents(cli_input.word_list)?;
+    let wordle_player: Player = Player { username: cli_input.username, word_list: word_options };
 
-    let words: Vec<String> = vec!();
+    // play a game of wordle
+    let secret_key: String = remote::run_wordle_client(cli_input.hostname, cli_input.port, cli_input.encrypt, wordle_player)?;
+    println!("{}", secret_key);
 
-    // initialize connection
-    let game_response: Result<String, String> = launch_wordle_client(address, _cli_input.encrypt, words);
-
-    match game_response {
-        Ok(secret_key) => {
-            println!("{}", secret_key)
-        },
-        Err(err_msg) => {
-            // TODO: remove this print statement
-            print!("{}", err_msg)
-        }
-    }
+    Ok(())
 }
