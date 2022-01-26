@@ -7,6 +7,7 @@ use clap::Parser;
 // const DEFAULT_HOSTNAME: &str = "proj1.3700.network";
 const DEFAULT_PORT: &str = "27993";
 const DEFAULT_TLS_PORT: &str = "27994";
+const DEFAULT_WORD_LIST_PATH: &str = "word_list.txt";
 // ----------------------------------------------------------------
 
 
@@ -35,8 +36,8 @@ pub struct CLI {
     pub username: String,
 
     #[clap(short='w', long, required(false), help="Define a path to a list of words")]
-    #[clap(hide(true), parse(try_from_str=validate_path))]
-    pub word_list: Option<PathBuf>
+    #[clap(hide(true), parse(try_from_str=validate_path), default_value(DEFAULT_WORD_LIST_PATH))]
+    pub word_list: PathBuf
 }
 
 fn validate_path(string_path: &str) -> Result<PathBuf, String> {
