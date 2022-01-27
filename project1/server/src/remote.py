@@ -6,6 +6,7 @@ import socket
 import ssl
 import json
 import random
+import certifi
 
 from dataclasses import dataclass
 from enum import Enum
@@ -38,7 +39,7 @@ def select_word(word_list: List[str]):
     """
     Pick a word from the path to an endline separated word list
     """
-    raw_word = random.choice(word_list.readlines())
+    raw_word = random.choice(word_list)
     # remove endline
     return raw_word.strip()
 
@@ -86,6 +87,8 @@ def read_terminated_json(reader: Callable[[int, int], bytes]) -> Any:
 
     msg_str = str(raw_msg, DEFAULT_ENCODING)
 
+    print(f"Received: {repr(msg_str)}")
+
     try:
         json_msg = json.loads(msg_str)
     except json.JSONDecodeError:
@@ -125,7 +128,8 @@ def classify_message(received_msg: Any, *msg_args) -> Generator[Tuple[bool, Any]
     Extract the components from a received message or return False if they do not exist
     """
     if not isinstance(received_msg, dict):
-        yield False, None
+        yield False
+        yield from [None] * (len(msg_args) + 1)
         return
 
     yield True
@@ -186,7 +190,7 @@ def form_guess_response(received_message: Any, game: Wordle) -> Tuple[bool, Resp
 
     :return: (False, <response>) if game is over else (True, <response>)
     """
-    valid, msg_type, player_id, word = classify_message(received_message, USERNAME_KEY, ID_KEY, GUESS_KEY)
+    valid, msg_type, player_id, word = classify_message(received_message, ID_KEY, GUESS_KEY)
 
     if not valid:
         return False, ErrorResponse.from_msg("Unknown message format")
@@ -202,6 +206,8 @@ def run_client_game(server_sock: socket.socket, with_words: List[str]):
     Accept a single client and communicate until game is over
     """
     client_sock, addr = server_sock.accept()
+
+    print(f"Received connection from: {addr}")
 
     with client_sock:
         hello_json = read_terminated_json(client_sock.recv)
@@ -226,6 +232,9 @@ def run_server(address: Tuple[str, int], use_tls: bool, word_options: List[str])
     """
     Run the server that can be connected to by clients
     """
+
+    print(f"Launched server on: {address}")
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0) as sock:
         sock.bind(address)
 
@@ -235,7 +244,9 @@ def run_server(address: Tuple[str, int], use_tls: bool, word_options: List[str])
         if not use_tls:
             run_client_game(sock, with_words=word_options)
         else:
-            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            raise ValueError("Cannot support this due to a lack of certificate understanding")
 
-            with context.wrap_socket(sock, server_side=True) as wrapped_sock: 
+            context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+
+            with context.wrap_socket(sock, server_side=True)  as wrapped_sock:
                 run_client_game(wrapped_sock, with_words=word_options)
