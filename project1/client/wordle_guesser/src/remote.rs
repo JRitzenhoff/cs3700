@@ -223,7 +223,7 @@ pub fn play_game<Stream>(mut client_stream: Stream, player: Player) -> Result<St
         }
     };
 
-    Ok(format!("Response: {}", secret_key))
+    Ok(format!("{}", secret_key))
 }
 
 
