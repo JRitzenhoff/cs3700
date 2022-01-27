@@ -8,7 +8,7 @@ from collections import Counter
 
 # ----------------------------------------------------------------
 # CONSTANTS
-MAX_CLIENT_GUESSES = 5
+MAX_CLIENT_GUESSES = 500
 
 SECRET_MESSAGE = 'rekt_nerd' # if wordle is completed, this is the expected message
 # ----------------------------------------------------------------

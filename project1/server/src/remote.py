@@ -217,7 +217,8 @@ def run_client_game(server_sock: socket.socket, with_words: List[str]):
             return
 
         player_word = select_word(with_words)
-        game = Wordle(player_word, player_id) # this is jank
+        print(f"Starting game with word {player_word}")
+        game = Wordle(player_word, player_id)
 
         game_active = True
         while game_active:
