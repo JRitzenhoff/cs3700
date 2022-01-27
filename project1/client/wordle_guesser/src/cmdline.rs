@@ -7,7 +7,7 @@ use clap::Parser;
 // const DEFAULT_HOSTNAME: &str = "proj1.3700.network";
 const DEFAULT_PORT: &str = "27993";
 const DEFAULT_TLS_PORT: &str = "27994";
-const DEFAULT_WORD_LIST_PATH: &str = "word_list.txt";
+const DEFAULT_WORD_LIST_PATH: &str = "wordle_guesser/word_list.txt";
 // ----------------------------------------------------------------
 
 
