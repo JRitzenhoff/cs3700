@@ -1,13 +1,14 @@
 
 // use std::io::prelude::*;
+use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::io::{Read, Write, BufReader, BufRead, Error, ErrorKind};
 use std::net::TcpStream;
-use std::collections::HashMap;
 
 use native_tls::{TlsConnector, TlsStream};
 use json::{JsonValue};
 
-use crate::player::{self, Player, Guess};
+use crate::player::{self, Player, Guess, Indicator};
 
 
 // ----------------------------------------------------------------
@@ -19,6 +20,7 @@ const WORD_KEY: &str = "word";
 const PAST_GUESSES_KEY: &str = "guesses";
 const FLAG_KEY: &str = "flag";
 const MESSAGE_KEY: &str = "message";
+const SCORE_KEY: &str = "marks";
 
 const HELLO_MSG_KEY: &str = "hello";
 const GUESS_MSG_KEY: &str = "guess";
@@ -51,21 +53,8 @@ impl From<&str> for ResponseType {
 
 #[derive(Debug, PartialEq)]
 enum ContentType {
-    MATCHES(JsonValue),
-    FLAG(String),
-    UNKNOWN(String)
-}
-
-impl From<(&str, JsonValue)> for ContentType {
-    fn from(input: (&str, JsonValue)) -> Self {
-        let (key, value) = input;
-
-        match key {
-            PAST_GUESSES_KEY => ContentType::MATCHES(value),
-            FLAG_KEY => ContentType::FLAG(value.to_string()),
-            _ => ContentType::UNKNOWN(String::from(key))
-        }
-    }
+    MATCHES(Vec<Guess>),
+    FLAG(String)
 }
 
 /// Accepts a list of arguments
@@ -93,10 +82,8 @@ fn extract_json_field(json_object: &JsonValue, expected_key: &str) -> Result<Jso
     }
 }
 
-fn parse_response(raw_response: String, expected_field: Option<&str>) -> Result<(ResponseType, String, JsonValue), Error> {
-    let json_response = json::parse(raw_response.as_str()).unwrap();
-
-    let type_value = extract_json_field(&json_response, TYPE_KEY)?;
+fn parse_response(json_response: &JsonValue) -> Result<(ResponseType, String), Error> {
+    let type_value = extract_json_field(json_response, TYPE_KEY)?;
     let response_type: ResponseType = ResponseType::from(type_value.to_string().as_str());
 
     match response_type {
@@ -110,20 +97,13 @@ fn parse_response(raw_response: String, expected_field: Option<&str>) -> Result<
     }
 
     let id_value = extract_json_field(&json_response, ID_KEY)?.to_string();
-
-    let field: &str = match expected_field {
-        Some(value) => value,
-        None => return Ok((response_type, id_value, JsonValue::Null))
-    };
-    
-    let content = extract_json_field(&json_response, field)?;
-
-    Ok((response_type, id_value, content))
+    return Ok((response_type, id_value))
 }
 
 
 fn parse_hello_response(raw_response: String) -> Result<String, Error> {
-    let (resp_type, id_value, _) = parse_response(raw_response, None)?;
+    let json_response = json::parse(raw_response.as_str()).unwrap();
+    let (resp_type, id_value) = parse_response(&json_response)?;
 
     match resp_type {
         ResponseType::START => Ok(id_value),
@@ -131,13 +111,71 @@ fn parse_hello_response(raw_response: String) -> Result<String, Error> {
     }
 }
 
-fn parse_guesses(_json_guesses: JsonValue) -> Result<Vec<Guess>, Error> {
-    Ok(Vec::new())
+fn parse_marks(json_marks: JsonValue) -> Result<Vec<Indicator>, Error> {
+    if !json_marks.is_array() {
+        return Err(Error::new(ErrorKind::InvalidData, format!("Expected array of marks objects and received {:?}", json_marks)))
+    }
+
+    let mut marks: Vec<Indicator> = Vec::new();
+
+    for json_indicator in json_marks.members() {
+
+        let indicator: Indicator = match Indicator::try_from(json_indicator.as_u8().unwrap()) {
+            Ok(enum_val) => enum_val,
+            Err(raw_val) => return Err(Error::new(ErrorKind::InvalidData, format!("Unknown indicator value {}", raw_val)))
+        };
+
+        marks.push(indicator);
+    }
+
+    Ok(marks)
+}
+
+fn parse_guess(json_guess: JsonValue) -> Result<Guess, Error> {
+    let guessed_word: String = extract_json_field(&json_guess, WORD_KEY)?.to_string();
+    let guessed_raw_marks: JsonValue = extract_json_field(&json_guess, SCORE_KEY)?;
+
+    let guessed_marks = parse_marks(guessed_raw_marks)?;
+
+    Ok(Guess { word: guessed_word, marks: guessed_marks })
+}
+
+fn parse_guesses(json_guesses: JsonValue) -> Result<Vec<Guess>, Error> {
+    if !json_guesses.is_array() {
+        return Err(Error::new(ErrorKind::InvalidData, format!("Expected array of guess objects and received {:?}", json_guesses)))
+    }
+
+    let mut guesses: Vec<Guess> = Vec::new();
+    
+    for json_guess in json_guesses.members() {
+        let past_guess: Guess = parse_guess(json_guess.to_owned())?;
+        guesses.push(past_guess);
+    }
+    
+    Ok(guesses)
 }
 
 
-fn parse_guess_response(_raw_response: String, _player_id: &str) -> Result<ContentType, Error> {
-    Ok(ContentType::FLAG(format!("rekt nerd with id {}", _player_id)))
+fn parse_guess_response(raw_response: String, player_id: &str) -> Result<ContentType, Error> {
+    let json_response = json::parse(raw_response.as_str()).unwrap();
+    let (resp_type, id_value) = parse_response(&json_response)?;
+
+    if id_value != player_id {
+        return Err(Error::new(ErrorKind::InvalidData, format!("Received ID {} instead of expected {}", id_value, player_id)))
+    }
+
+    match resp_type {
+        ResponseType::RETRY => {
+            let json_guesses = extract_json_field(&json_response, PAST_GUESSES_KEY)?;
+            let previous_guesses = parse_guesses(json_guesses)?;
+            Ok(ContentType::MATCHES(previous_guesses))
+        },
+        ResponseType::BYE => {
+            let content = extract_json_field(&json_response, FLAG_KEY)?;
+            Ok(ContentType::FLAG(content.to_string()))
+        },
+        _ => Err(Error::new(ErrorKind::InvalidData, format!("Expected response type {:?} and received {:?}", ResponseType::RETRY, resp_type)))
+    }
 }
 
 pub fn play_game<Stream>(mut client_stream: Stream, player: Player) -> Result<String, Error> where Stream: Read+Write {
@@ -161,8 +199,9 @@ pub fn play_game<Stream>(mut client_stream: Stream, player: Player) -> Result<St
 
     // make guesses
     let secret_key: String = loop {
-        let (guess, remaining_words) = player::make_guess(previous_guesses, word_options.to_vec());
+        let (guess, remaining_words) = player::make_guess(previous_guesses, word_options.to_vec()).unwrap();
         word_options = remaining_words;
+
         let guess_msg: Vec<u8> = prepare_message(HashMap::from([(TYPE_KEY, GUESS_MSG_KEY),
                                                                 (ID_KEY, player_id),
                                                                 (WORD_KEY, guess.as_str())]));
@@ -175,13 +214,12 @@ pub fn play_game<Stream>(mut client_stream: Stream, player: Player) -> Result<St
         }
 
         match parse_guess_response(guess_response, player_id)? {
-            ContentType::MATCHES(raw_prev_guesses) => {
-                previous_guesses = parse_guesses(raw_prev_guesses)?;
+            ContentType::MATCHES(past_guesses) => {
+                previous_guesses = past_guesses;
             },
             ContentType::FLAG(key) => {
                 break key;
-            },
-            ContentType::UNKNOWN(msg) => return Err(Error::new(ErrorKind::InvalidData, format!("Unknown content type {}", msg)))
+            }
         }
     };
 
