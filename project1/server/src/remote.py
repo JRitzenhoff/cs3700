@@ -178,10 +178,8 @@ def make_guess(game, player_id, guess) -> Tuple[bool, Response]:
 
     else:
         mark_converter = lambda score: [letter_indicator.value for letter_indicator in score]
-        all_marks = [{GUESS_KEY: g, SCORE_KEY: mark_converter(m)} 
-                    for (g,m) in 
-                    package + [(guess, marks)]]
-        return True, Response(ResponseType.RETRY, contents=all_marks)
+        all_marks = [{GUESS_KEY: g, SCORE_KEY: mark_converter(m)} for (g,m) in package + [(guess, marks)]]
+        return True, Response(ResponseType.RETRY, contents={ID_KEY: player_id, PREVIOUS_ATTEMPTS_KEY: all_marks})
 
 
 def form_guess_response(received_message: Any, game: Wordle) -> Tuple[bool, Response]:
