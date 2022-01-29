@@ -103,9 +103,14 @@ fn generate_regex(from_guesses: Vec<Guess>) -> Result<(Regex, HashSet<char>), re
             continue;
         }
 
-        let wrong_chars: String = generate_char_options(definite_wrongs);
-        let wrong_combo: String = format!("[^{}]", wrong_chars);
-        binary_string.push_str(wrong_combo.as_str());
+        if definite_wrongs.is_empty() {
+            binary_string.push_str(DEFAULT_CHAR_RANGE);
+        } 
+        else {
+            let wrong_chars: String = collection.iter().collect::<String>();
+            let wrong_regex: String = format!("[^{}]", wrong_chars);
+            binary_string.push_str(wrong_regex.as_str()); 
+        };
     }
 
     // println!("Correct: {:?}", correct_letters);
