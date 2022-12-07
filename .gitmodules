@@ -1,15 +1,3 @@
-[submodule "3700Crawler"]
-	path = 3700Crawler
-	url = ./3700Crawler
-[submodule "3700Router"]
-	path = 3700Router
-	url = ./3700Router
-[submodule "3700TCP"]
-	path = 3700TCP
-	url = ./3700TCP
 [submodule "3700Bridge"]
 	path = 3700Bridge
-	url = ./3700bridge
-[submodule "3700bridge"]
-	path = 3700bridge
 	url = ./3700bridge
