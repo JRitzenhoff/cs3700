@@ -26,3 +26,16 @@ The code itself is designed to be run on the Northeastern Khoury Servers.
     * Whereas the external current stable version is `Python3.11`
 * The servers have `rustc 1.53.0`
     * Whereas the external current stable version is `rustc 1.58.1` 
+
+
+
+## Project Directories
+
+As can be seen in the git history, it took a while to import complete copies of the various semester projects into this parent repository.
+
+I attempted cloning the repositories. (First as traditional, then bare, then mirrored)
+I attempted using the repositories as submodules.
+I then had to revert all of the changes back to the original commit (messily I may add)
+I then discovered **subtrees**
+
+`git subtree add --prefix <subtree local folder name> <subtree full URL/path> <subtree branch name> --squash`
