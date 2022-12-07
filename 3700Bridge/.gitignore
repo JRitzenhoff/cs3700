@@ -1,0 +1,5 @@
+# Python Compiled files
+**/__pycache__
+
+# Debug files
+*.out
