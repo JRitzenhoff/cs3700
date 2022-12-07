@@ -1,0 +1,11 @@
+# Python Compiled files
+**/__pycache__
+
+# PyCharm Files
+**/.idea
+
+# Debug files
+**.out
+
+# Submission Files
+**.zip
