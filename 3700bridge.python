@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+
+import sys
+import socket
+import select
+import json
+import argparse
+
+# First, grab our arguments from the command line
+#  bridge_id is our networks ID ("1234" or whatever)
+#  lan_ports are the local UDP ports that we use to send/receive packets on our LAN(s)
+parser = argparse.ArgumentParser(description='CS 3700 networks')
+parser.add_argument('bridge_id', type=str, help="Bridge ID (e.g., 02ab)")
+parser.add_argument('lan_ports', metavar='lan_port', type=int, nargs='+', help="UDP ports to connect to LANs")
+args = parser.parse_args()
+
+# This variable represents our networks's ports.  It is a 0-indexed array, as per the project spec
+PORTS = []
+
+# Definition of a port
+class Port:
+  def __init__(self, id, lan_port):
+    self.id = id
+    self.lan_port = lan_port
+    self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    self.socket.bind(('localhost', 0))
+
+  # This method sends a BPDU on this port.  Right now, it only sends a 
+  # BPDU that says this networks believes its the root; obviously, this
+  # will need to be updated.
+  def send_bpdu(self):
+    self.send(json.dumps({"source": args.bridge_id, 
+                          "dest": "ffff", 
+                          "msg_id": 0,
+                          "type": "bpdu", 
+                          "message": { "id": args.bridge_id, 
+                                      "root": args.bridge_id, 
+                                      "cost": 0, 
+                                      "port": self.id }
+                        }).encode('utf-8'))
+
+  # This method sends the provided byte array "data" to the LAN, using the 
+  # UDP connection.
+  def send(self, data):
+    print("Sending message on port %d" % self.id)
+    self.socket.sendto(data, ('localhost', self.lan_port))
+
+# Set up our ports
+print("Bridge starting up")
+for i, lan_port in enumerate(args.lan_ports):
+  PORTS.append(Port(i, lan_port))
+
+# This method sends a BPDU on all ports.  You might want to call this regularly...
+def send_bpdus():
+  for port in PORTS:
+    port.send_bpdu()
+
+# Now we send a "hello" BPDU to all LANs to announce that we're here
+send_bpdus()
+
+# Main loop
+while True:
+  sockets = list(map(lambda p: p.socket, PORTS))
+  readable, _, execeptable = select.select(sockets, [], sockets)
+
+  for s in readable:
+    data, addr = s.recvfrom(1500)
+    message = data.decode('utf-8')
+
+    print("Received message: '%s'" % message)
+
