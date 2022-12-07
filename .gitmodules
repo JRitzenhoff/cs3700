@@ -1,3 +1,6 @@
 [submodule "3700Bridge"]
 	path = 3700Bridge
 	url = ./3700bridge
+[submodule "3700bridge"]
+	path = 3700bridge
+	url = git@github.com:JRitzenhoff/3700bridge.git
